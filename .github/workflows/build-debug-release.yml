@@ -45,43 +45,27 @@ jobs:
           cd PipePipeClient
           ./gradlew assembleDebug --stacktrace -DskipFormatKtlint
 
-      - name: Prepare APKs for Release
+      - name: Prepare APK for Release
         id: prepare_apk
         run: |
           mkdir -p release_assets
           cd PipePipeClient/app/build/outputs/apk/debug
           ls -la
-          
-          # Copy universal APK if available
-          if [ -f *universal*.apk ]; then
-            cp *universal*.apk ../../../../../release_assets/PipePipe-Gemini-universal-debug.apk
+          APK_FILE=$(find . -name "*arm64-v8a*.apk" -o -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            echo "Error: No APK found!"
+            exit 1
           fi
-          
-          # Copy arm64-v8a APK if available
-          if [ -f *arm64-v8a*.apk ]; then
-            cp *arm64-v8a*.apk ../../../../../release_assets/PipePipe-Gemini-arm64-v8a-debug.apk
-          fi
-
-          # Copy armeabi-v7a APK if available
-          if [ -f *armeabi-v7a*.apk ]; then
-            cp *armeabi-v7a*.apk ../../../../../release_assets/PipePipe-Gemini-armeabi-v7a-debug.apk
-          fi
-
-          # Fallback: copy any other apk if universal not created
-          for f in *.apk; do
-            if [ -f "$f" ]; then
-              cp "$f" "../../../../../release_assets/PipePipe-Gemini-$f"
-            fi
-          done
-          
+          echo "Selected APK: $APK_FILE"
+          cp "$APK_FILE" ../../../../../release_assets/PipePipe-Gemini-arm64-v8a-debug.apk
           cd ../../../../../
           echo "tag_name=debug-$(date +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PipePipe-debug-apks
-          path: release_assets/*.apk
+          name: PipePipe-arm64-v8a-debug-apk
+          path: release_assets/PipePipe-Gemini-arm64-v8a-debug.apk
           retention-days: 14
 
       - name: Create / Update GitHub Release
@@ -90,14 +74,12 @@ jobs:
           tag_name: ${{ steps.prepare_apk.outputs.tag_name }}
           name: "PipePipe Gemini AI Subtitles (${{ steps.prepare_apk.outputs.tag_name }})"
           body: |
-            ### 🎬 PipePipe with Gemini AI Subtitle Translation
+            ### 🎬 PipePipe with Gemini AI Subtitle Translation (ARM64-v8a)
             
-            This is an automated keyless debug clone build of PipePipe with integrated Gemini AI Subtitle Translation.
+            This is a lightweight, optimized ARM64-v8a clone build of PipePipe with integrated Gemini AI Subtitle Translation.
             
-            #### 📱 APK Options:
-            • **`PipePipe-Gemini-universal-debug.apk`** (⭐ **Recommended** - Compatible with **ALL** Android devices)
-            • **`PipePipe-Gemini-arm64-v8a-debug.apk`** (For modern 64-bit ARM phones)
-            • **`PipePipe-Gemini-armeabi-v7a-debug.apk`** (For 32-bit ARM phones)
+            #### 📱 APK Download:
+            • **`PipePipe-Gemini-arm64-v8a-debug.apk`** (Lightweight, optimized for 64-bit ARM Android phones)
             
             #### ✨ Features included:
             • **Gemini AI Subtitle Translation**: Real-time multi-format subtitle translation into your target language.
@@ -108,6 +90,6 @@ jobs:
             
             **Commit**: `${{ github.sha }}`
           files: |
-            release_assets/*.apk
+            release_assets/PipePipe-Gemini-arm64-v8a-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
