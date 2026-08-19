@@ -48,17 +48,14 @@ jobs:
       - name: Prepare APK for Release
         id: prepare_apk
         run: |
-          mkdir -p release_assets
-          cd PipePipeClient/app/build/outputs/apk/debug
-          ls -la
-          APK_FILE=$(find . -name "*arm64-v8a*.apk" -o -name "*.apk" | head -n 1)
+          mkdir -p "$GITHUB_WORKSPACE/release_assets"
+          APK_FILE=$(find PipePipeClient/app/build/outputs/apk/debug -name "*arm64-v8a*.apk" -o -name "*.apk" | head -n 1)
           if [ -z "$APK_FILE" ]; then
             echo "Error: No APK found!"
             exit 1
           fi
           echo "Selected APK: $APK_FILE"
-          cp "$APK_FILE" ../../../../../release_assets/PipePipe-Gemini-arm64-v8a-debug.apk
-          cd ../../../../../
+          cp "$APK_FILE" "$GITHUB_WORKSPACE/release_assets/PipePipe-Gemini-arm64-v8a-debug.apk"
           echo "tag_name=debug-$(date +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK as Workflow Artifact
