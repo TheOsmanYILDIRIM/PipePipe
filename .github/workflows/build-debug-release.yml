@@ -1,4 +1,4 @@
-name: Build Debug APK & Release
+name: Build Release APK & Release
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-and-release:
-    name: Build and Release Debug APK
+    name: Build and Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -32,61 +32,66 @@ jobs:
           cd PipePipeClient
           chmod +x gradlew
 
-      - name: Create Persistent Signing Keystore
+      - name: Verify Persistent Signing Keystore
         run: |
-          cd PipePipeClient/app
-          keytool -genkeypair -alias gemini -keyalg RSA -keysize 2048 -validity 10000 \
-            -keystore gemini-signing.keystore \
-            -storepass geminipass -keypass geminipass \
-            -dname "CN=PipePipeGemini, OU=Gemini, O=AI, L=Istanbul, ST=Istanbul, C=TR"
+          if [ ! -f "PipePipeClient/app/gemini-signing.keystore" ]; then
+            echo "Keystore not found, generating fallback..."
+            cd PipePipeClient/app
+            keytool -genkeypair -alias gemini -keyalg RSA -keysize 2048 -validity 10000 \
+              -keystore gemini-signing.keystore \
+              -storepass geminipass -keypass geminipass \
+              -dname "CN=PipePipeGemini, OU=Gemini, O=AI, L=Istanbul, ST=Istanbul, C=TR"
+          else
+            echo "Found fixed permanent gemini-signing.keystore."
+          fi
 
-      - name: Build Debug APK
+      - name: Build Release APK
         run: |
           cd PipePipeClient
-          ./gradlew assembleDebug --stacktrace -DskipFormatKtlint
+          ./gradlew assembleRelease --stacktrace -DskipFormatKtlint
 
       - name: Prepare APK for Release
         id: prepare_apk
         run: |
           mkdir -p "$GITHUB_WORKSPACE/release_assets"
-          APK_FILE=$(find PipePipeClient/app/build/outputs/apk/debug -name "*arm64-v8a*.apk" -o -name "*.apk" | head -n 1)
+          APK_FILE=$(find PipePipeClient/app/build/outputs/apk/release -name "*arm64-v8a*.apk" -o -name "*.apk" | head -n 1)
           if [ -z "$APK_FILE" ]; then
-            echo "Error: No APK found!"
+            echo "Error: No Release APK found!"
             exit 1
           fi
           echo "Selected APK: $APK_FILE"
-          cp "$APK_FILE" "$GITHUB_WORKSPACE/release_assets/PipePipe-Gemini-arm64-v8a-debug.apk"
-          echo "tag_name=debug-$(date +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
+          cp "$APK_FILE" "$GITHUB_WORKSPACE/release_assets/PipePipe-Gemini-arm64-v8a-release.apk"
+          echo "tag_name=release-$(date +'%Y%m%d-%H%M%S')" >> "$GITHUB_OUTPUT"
 
       - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PipePipe-arm64-v8a-debug-apk
-          path: release_assets/PipePipe-Gemini-arm64-v8a-debug.apk
+          name: PipePipe-arm64-v8a-release-apk
+          path: release_assets/PipePipe-Gemini-arm64-v8a-release.apk
           retention-days: 14
 
       - name: Create / Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.prepare_apk.outputs.tag_name }}
-          name: "PipePipe Gemini AI Subtitles (${{ steps.prepare_apk.outputs.tag_name }})"
+          name: "PipePipe Gemini AI Subtitles Release (${{ steps.prepare_apk.outputs.tag_name }})"
           body: |
-            ### 🎬 PipePipe with Gemini AI Subtitle Translation (ARM64-v8a)
+            ### 🎬 PipePipe with Gemini AI Subtitle Translation (Release Build)
             
-            This is a lightweight, optimized ARM64-v8a clone build of PipePipe with integrated Gemini AI Subtitle Translation.
+            This is a permanent release build of PipePipe with integrated Gemini AI Subtitle Translation, signed with a fixed persistent keystore for seamless in-place updates.
             
             #### 📱 APK Download:
-            • **`PipePipe-Gemini-arm64-v8a-debug.apk`** (Lightweight, optimized for 64-bit ARM Android phones)
+            • **`PipePipe-Gemini-arm64-v8a-release.apk`** (Optimized 64-bit ARM Android Release APK)
             
-            #### ✨ Features included:
-            • **Gemini AI Subtitle Translation**: Real-time multi-format subtitle translation into your target language.
-            • **Chunked Streaming**: Playback begins immediately as soon as the first batch of cues is translated.
-            • **Independent Clone**: Can be installed alongside official PipePipe without uninstallation.
-            • **In-Place Upgradable**: Signed with a persistent keystore, allowing future updates to install directly over this build.
-            • **Universal Subtitle Engine**: Full support for WebVTT, SubRip (SRT), YouTube TimedText XML v1/v3, TTML, and YouTube JSON3.
+            #### ✨ Key Features & Improvements:
+            • **Fixed Signing Key**: Permanently signed with a persistent keystore, allowing future updates to install directly over this build without signature errors.
+            • **Multi-Chunk Resilience**: Robust chunk-by-chunk translation loop with smart 429 quota backoff and automatic retry.
+            • **Custom Model Support**: Choose from preset Gemini models or enter any custom model name manually in Settings.
+            • **Safety Filter Bypass**: Automatically sets `BLOCK_NONE` so movie/video subtitles are never blocked.
+            • **Independent Clone**: Can be installed side-by-side with official PipePipe (`InfinityLoop1309.NewPipeEnhanced.gemini`).
             
             **Commit**: `${{ github.sha }}`
           files: |
-            release_assets/PipePipe-Gemini-arm64-v8a-debug.apk
+            release_assets/PipePipe-Gemini-arm64-v8a-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
