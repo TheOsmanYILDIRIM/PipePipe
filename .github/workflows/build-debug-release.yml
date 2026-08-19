@@ -32,6 +32,14 @@ jobs:
           cd PipePipeClient
           chmod +x gradlew
 
+      - name: Create Persistent Signing Keystore
+        run: |
+          cd PipePipeClient/app
+          keytool -genkeypair -alias gemini -keyalg RSA -keysize 2048 -validity 10000 \
+            -keystore gemini-signing.keystore \
+            -storepass geminipass -keypass geminipass \
+            -dname "CN=PipePipeGemini, OU=Gemini, O=AI, L=Istanbul, ST=Istanbul, C=TR"
+
       - name: Build Debug APK
         run: |
           cd PipePipeClient
